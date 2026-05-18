@@ -1,8 +1,5 @@
-> [!IMPORTANT]
-> **MicroForest**  
-> Macro Precision `0.709` · Macro Recall `0.714` · Macro F1 `0.702` · Train `10.285s` · Predict `0.0259s` · Pickle `113.7KB`
-
-Baseline results:
-
-- **Random Forest**: Macro Precision `0.718` · Macro Recall `0.805` · Macro F1 `0.742` · Train `4.063s` · Predict `0.4519s` · Pickle `3683.0KB`
-- **LightGBM**: Macro Precision `0.717` · Macro Recall `0.783` · Macro F1 `0.744` · Train `5.077s` · Predict `0.0459s` · Pickle `2418.4KB`
+| Model | Macro Precision | Macro Recall | Macro F1 | Train s | Predict s | Pickle KB |
+|---|---:|---:|---:|---:|---:|---:|
+| Random Forest | 0.718 | 0.805 | 0.742 | 4.063 | 0.4519 | 3683.0 |
+| **MicroForest** | **0.709** | **0.714** | **0.702** | **10.285** | **0.0259** | **113.7** |
+| LightGBM | 0.717 | 0.783 | 0.744 | 5.077 | 0.0459 | 2418.4 |
