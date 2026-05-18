@@ -11,7 +11,7 @@
 
 ## 핵심 아이디어
 
-논문에서 제가 보인 관찰은 간단합니다. Random Forest 안에는 수많은 split이 있지만, 병목 예측에 실제로 큰 기여를 하는 split은 일부입니다. MicroForest는 task별 Random Forest teacher를 먼저 학습한 뒤, 정보이득이 큰 split rule만 뽑아 작은 `MicroTree`를 구성합니다. 최종 배포 모델에는 teacher RF를 들고 갈 필요가 없으므로 edge 환경에서 메모리와 추론 비용을 줄일 수 있습니다.
+Random Forest 안에는 수많은 split이 있지만, 병목 예측에 실제로 큰 기여를 하는 split은 일부입니다. MicroForest는 task별 Random Forest teacher를 먼저 학습한 뒤, 정보이득이 큰 split rule만 뽑아 작은 `MicroTree`를 구성합니다. 최종 배포 모델에는 teacher RF를 들고 갈 필요가 없으므로 edge 환경에서 메모리와 추론 비용을 줄일 수 있습니다.
 
 ![Low information gain split ratio](assets/paper-figure-001.png)
 
