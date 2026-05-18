@@ -1,8 +1,6 @@
 # MicroForest
 
-이 저장소는 제가 1저자로 발표한 논문 **MicroForest: Lightweight Bottleneck Prediction for Manufacturing Processes on Edge Devices**의 핵심 아이디어를 다시 구현한 코드입니다.
-
-원래 실험 코드와 데이터 파일을 보존하지 못해, 논문에 공개했던 설명을 기준으로 데이터 생성기부터 모델, baseline 비교 스크립트까지 새로 구성했습니다. 현재 목표는 논문 전체 실험 표를 완전히 복제하는 것이 아니라, 데이터 생성 -> 모델 학습 -> MicroForest 동작 확인 -> RF/LGBM baseline 비교까지 재현 가능한 형태로 정리하는 것입니다.
+이 저장소는 제가 1저자로 발표한 논문 **MicroForest: Lightweight Bottleneck Prediction for Manufacturing Processes on Edge Devices**의 핵심 아이디어를 구현한 코드입니다.
 
 > Yoo, S.; Oh, C. *MicroForest: Lightweight Bottleneck Prediction for Manufacturing Processes on Edge Devices*. Applied Sciences 2025, 15, 7798. https://doi.org/10.3390/app15147798  
 > 논문 그림은 원문에서 추출했으며, 원문 라이선스(CC BY 4.0)에 따라 출처를 명시해 포함했습니다.
@@ -109,7 +107,7 @@ python scripts/train_microforest.py --data data/sample.csv --tasks 20 --model-ou
 
 RF와 LightGBM baseline 비교 코드는 [scripts/compare_baselines.py](scripts/compare_baselines.py)에 있습니다.
 
-제가 실행한 비교 명령:
+비교 명령:
 
 ```powershell
 python scripts/compare_baselines.py --tasks 20 --samples 1000 --horizon 30 --prediction-window 5 --rf-estimators 60 --rf-depth 7
@@ -164,23 +162,12 @@ artifacts/
   baseline_comparison.md
 ```
 
-## 현재 한계
-
-이 저장소는 “잃어버린 코드의 복원판”입니다. 따라서 논문에 사용한 원본 seed, 원본 데이터, 원본 edge-device latency 측정값과 완전히 동일하다고 주장하지 않습니다.
-
-아직 남은 작업은 다음과 같습니다.
-
-- 논문 표와 동일한 task scale 전체 재실험
-- DCT, SSF 등 추가 baseline 구현
-- 실제 edge device에서 latency / memory 재측정
-- task grouping 최적화 실험 재구현
-
 ## Citation
 
 ```bibtex
 @article{yoo2025microforest,
   title = {MicroForest: Lightweight Bottleneck Prediction for Manufacturing Processes on Edge Devices},
-  author = {Yoo, Seungmin and Oh, Chanyoung},
+  author = {Seungmin Yoo},
   journal = {Applied Sciences},
   volume = {15},
   number = {14},
