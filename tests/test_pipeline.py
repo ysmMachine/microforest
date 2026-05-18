@@ -18,6 +18,7 @@ class PipelineTest(unittest.TestCase):
             n_tasks=tasks,
             samples=60,
             horizon=10,
+            prediction_window=2,
             seed=3,
         )
         model = MicroForest(

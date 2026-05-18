@@ -17,7 +17,12 @@ def main() -> None:
     parser.add_argument("--tasks", type=int, default=20)
     parser.add_argument("--samples", type=int, default=500)
     parser.add_argument("--horizon", type=int, default=100)
+    parser.add_argument("--prediction-window", type=int, default=1)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--edge-probability", type=float, default=0.18)
+    parser.add_argument("--cycle-time-jitter", type=float, default=0.15)
+    parser.add_argument("--failure-probability", type=float, default=0.01)
+    parser.add_argument("--source-release-probability", type=float, default=0.85)
     parser.add_argument("--out", default="data/sample.csv")
     args = parser.parse_args()
 
@@ -25,7 +30,12 @@ def main() -> None:
         n_tasks=args.tasks,
         samples=args.samples,
         horizon=args.horizon,
+        prediction_window=args.prediction_window,
         seed=args.seed,
+        edge_probability=args.edge_probability,
+        cycle_time_jitter=args.cycle_time_jitter,
+        failure_probability=args.failure_probability,
+        source_release_probability=args.source_release_probability,
     )
     save_dataset(args.out, feature_names, label_names, features, labels)
     print(f"saved {len(features)} rows, {len(feature_names)} features, {len(label_names)} labels to {args.out}")

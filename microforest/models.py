@@ -277,6 +277,11 @@ class MicroForest:
     def microtree_node_count(self) -> int:
         return int(sum(tree.node_count() for tree in self.microtrees_))
 
+    def discard_teachers(self) -> "MicroForest":
+        """Drop teacher RFs after MicroTrees have been constructed."""
+        self.teachers_ = []
+        return self
+
     def save(self, path: str | Path) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -290,4 +295,3 @@ class MicroForest:
         if not isinstance(model, cls):
             raise TypeError("Pickle did not contain a MicroForest model.")
         return model
-

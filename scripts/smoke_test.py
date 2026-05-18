@@ -20,6 +20,7 @@ def main() -> None:
         n_tasks=tasks,
         samples=120,
         horizon=20,
+        prediction_window=3,
         seed=11,
     )
 

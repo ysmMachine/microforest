@@ -1,40 +1,55 @@
 # MicroForest
 
-`MicroForest`는 MDPI *Applied Sciences*에 게재된 논문
-**MicroForest: Lightweight Bottleneck Prediction for Manufacturing Processes on Edge Devices**의 핵심 아이디어를 재구현한 연구용 코드입니다.
+이 저장소는 제가 1저자로 발표한 논문 **MicroForest: Lightweight Bottleneck Prediction for Manufacturing Processes on Edge Devices**의 핵심 아이디어를 다시 구현한 코드입니다.
 
-이 저장소는 논문 실험 전체를 그대로 복제하기보다는, 데이터 생성부터 모델 구성과 동작 확인까지 이어지는 최소 재현 파이프라인을 제공합니다.
+원래 실험 코드와 데이터 파일을 보존하지 못해, 논문에 공개했던 설명을 기준으로 데이터 생성기부터 모델, baseline 비교 스크립트까지 새로 구성했습니다. 현재 목표는 논문 전체 실험 표를 완전히 복제하는 것이 아니라, 데이터 생성 -> 모델 학습 -> MicroForest 동작 확인 -> RF/LGBM baseline 비교까지 재현 가능한 형태로 정리하는 것입니다.
 
-> 논문 그림은 원문에서 추출했으며, 원문 라이선스(CC BY 4.0)에 따라 출처를 명시해 포함했습니다.  
-> Source: Yoo, S.; Oh, C. *MicroForest: Lightweight Bottleneck Prediction for Manufacturing Processes on Edge Devices*. Applied Sciences 2025, 15, 7798. https://doi.org/10.3390/app15147798
-
-## 개요
-
-제조 공정은 여러 작업(task)이 방향성 비순환 그래프(DAG)로 연결된 구조로 모델링됩니다. 각 작업은 입력 버퍼와 사이클 타임에 따라 동작하며, 특정 시점 이후 병목이 발생할 작업을 예측하는 것이 목표입니다.
-
-![Low information gain split ratio](assets/paper-figure-001.png)
-
-논문은 Random Forest의 많은 split 중 일부만 높은 정보이득을 갖는다는 점에 주목합니다. MicroForest는 task별 Random Forest teacher에서 중요한 split rule만 추출하고, 그 rule pool을 이용해 작은 `MicroTree`를 구성합니다.
-
-![Manufacturing DAG example](assets/paper-figure-002.png)
-
-## 구현 내용
-
-이 저장소에는 다음 요소가 포함되어 있습니다.
-
-- DAG 기반 제조 공정 시뮬레이터
-- 합성 병목 예측 데이터셋 생성기
-- scikit-learn `RandomForestClassifier` 기반 teacher 모델
-- Random Forest 내부 노드에서 정보이득 상위 split을 추출하는 `SplitSelector`
-- 선택된 split pool만 탐색해 만드는 `MicroTree`
-- task별 `MicroTree`를 묶은 `MicroForest`
-- 전체 파이프라인 smoke test
+> Yoo, S.; Oh, C. *MicroForest: Lightweight Bottleneck Prediction for Manufacturing Processes on Edge Devices*. Applied Sciences 2025, 15, 7798. https://doi.org/10.3390/app15147798  
+> 논문 그림은 원문에서 추출했으며, 원문 라이선스(CC BY 4.0)에 따라 출처를 명시해 포함했습니다.
 
 ![MicroForest overview](assets/paper-figure-003.png)
 
+## 핵심 아이디어
+
+논문에서 제가 보인 관찰은 간단합니다. Random Forest 안에는 수많은 split이 있지만, 병목 예측에 실제로 큰 기여를 하는 split은 일부입니다. MicroForest는 task별 Random Forest teacher를 먼저 학습한 뒤, 정보이득이 큰 split rule만 뽑아 작은 `MicroTree`를 구성합니다. 최종 배포 모델에는 teacher RF를 들고 갈 필요가 없으므로 edge 환경에서 메모리와 추론 비용을 줄일 수 있습니다.
+
+![Low information gain split ratio](assets/paper-figure-001.png)
+
+## 데이터는 어떻게 만들었나
+
+데이터 생성 코드는 [microforest/simulation.py](microforest/simulation.py)에 있습니다. 논문의 제조 공정 설정을 반영해 공정을 DAG로 만들고, 이 DAG 위에서 discrete-event simulation을 돌려 feature와 label을 생성합니다.
+
+현재 데이터 생성 절차는 다음과 같습니다.
+
+1. `n_tasks`개의 작업 노드를 생성합니다.
+2. 모든 노드가 앞선 노드 중 하나와 연결되도록 기본 edge를 만든 뒤, `edge_probability`에 따라 추가 edge를 넣어 DAG를 만듭니다.
+3. 각 task에 nominal cycle time을 부여합니다.
+4. edge마다 유한 buffer capacity와 initial buffer level을 부여합니다.
+5. simulation step마다 task의 잔여 처리 시간, buffer 상태, 생산량, starvation/blockage 상태를 갱신합니다.
+6. source task는 `source_release_probability`에 따라 원재료 투입 여부가 달라집니다.
+7. task cycle time은 `cycle_time_jitter`로 약간 흔들립니다.
+8. `failure_probability`에 따라 장비 downtime이 발생하고, repair time 동안 병목 상태로 기록됩니다.
+9. 입력 buffer가 비어 있으면 starvation, 출력 buffer가 가득 차면 blockage로 기록합니다.
+10. 현재 시점의 공정 상태를 feature로 저장하고, `horizon` 이후 `prediction_window` 안에 병목이 한 번이라도 발생하면 해당 task label을 1로 둡니다.
+
+현재 feature에는 다음 정보가 들어갑니다.
+
+- edge별 buffer level
+- edge별 buffer fill ratio
+- task별 remaining processing time
+- task별 downtime remaining
+- task별 누적 생산량
+- task별 starvation count
+- task별 blockage count
+- task별 nominal cycle time
+
+즉 label은 단순히 현재 병목 여부가 아니라, “현재 상태를 보고 미래 구간에서 task별 병목이 발생할지”를 맞히는 multi-task binary prediction입니다.
+
+![Manufacturing DAG example](assets/paper-figure-002.png)
+
 ## 설치
 
-Python 3.10 이상을 권장합니다. Anaconda를 사용 중이라면 별도 가상환경 없이도 아래처럼 바로 의존성을 설치할 수 있습니다.
+Python 3.10 이상을 권장합니다. 제 로컬 검증은 Anaconda Python 3.12에서 수행했습니다.
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -49,30 +64,38 @@ python -m venv .venv
 
 MSYS Python은 `numpy` wheel을 바로 사용하지 못해 소스 빌드로 빠질 수 있으므로 권장하지 않습니다.
 
-## 빠른 확인
-
-훈련을 오래 돌리지 않고, 데이터 생성부터 모델 저장까지 정상 동작하는지만 확인합니다.
+## 빠른 동작 확인
 
 ```powershell
 python scripts/smoke_test.py
 ```
 
-성공하면 다음 정보가 출력됩니다.
+제 로컬 smoke test 결과:
 
-- 생성된 task, edge, feature 수
-- 학습 시간
-- macro precision / recall / F1
-- teacher RF node 수
-- MicroTree node 수
-- 저장된 dataset 및 model 경로
+```text
+MicroForest smoke test OK
+tasks=8, edges=14, rows=120, features=76
+macro_f1=0.608
+teacher_nodes=496
+microtree_nodes=88
+```
 
 ## 데이터 생성
 
 ```powershell
-python scripts/generate_dataset.py --tasks 20 --samples 500 --out data/sample.csv
+python scripts/generate_dataset.py --tasks 20 --samples 500 --horizon 30 --prediction-window 5 --out data/sample.csv
 ```
 
-생성되는 CSV는 feature column 뒤에 `y_task_0 ... y_task_N` 형식의 label column을 포함합니다.
+주요 옵션:
+
+- `--tasks`: 제조 공정 task 수
+- `--samples`: 저장할 sample 수
+- `--horizon`: 현재 시점에서 몇 cycle 뒤를 볼지
+- `--prediction-window`: horizon 이후 몇 cycle 동안 병목 발생 여부를 label로 묶을지
+- `--edge-probability`: DAG 추가 edge 밀도
+- `--cycle-time-jitter`: cycle time 변동 폭
+- `--failure-probability`: step당 장비 고장 확률
+- `--source-release-probability`: source task 원재료 투입 확률
 
 ## MicroForest 학습
 
@@ -80,7 +103,44 @@ python scripts/generate_dataset.py --tasks 20 --samples 500 --out data/sample.cs
 python scripts/train_microforest.py --data data/sample.csv --tasks 20 --model-out artifacts/microforest.pkl
 ```
 
-기본값은 빠른 확인을 위해 작게 잡혀 있습니다. 논문 규모의 실험을 재현하려면 task 수, sample 수, teacher estimator 수, depth 등을 늘려야 합니다.
+이 스크립트는 task별 Random Forest teacher를 학습하고, teacher 내부 split 중 정보이득 상위 rule을 추출한 뒤, 그 split pool만 사용해 task별 `MicroTree`를 구성합니다.
+
+## RF / LGBM 비교
+
+RF와 LightGBM baseline 비교 코드는 [scripts/compare_baselines.py](scripts/compare_baselines.py)에 있습니다.
+
+제가 실행한 비교 명령:
+
+```powershell
+python scripts/compare_baselines.py --tasks 20 --samples 1000 --horizon 30 --prediction-window 5 --rf-estimators 60 --rf-depth 7
+```
+
+실행 환경:
+
+- Windows
+- Anaconda Python 3.12.4
+- NumPy 1.26.0
+- scikit-learn 1.5.2
+- LightGBM 4.6.0
+- synthetic dataset: 1000 rows, 206 features, 20 tasks
+
+| Model | Macro Precision | Macro Recall | Macro F1 | Train s | Predict s | Pickle KB |
+|---|---:|---:|---:|---:|---:|---:|
+| MicroForest | 0.709 | 0.714 | 0.702 | 10.285 | 0.0259 | 113.7 |
+| Random Forest | 0.718 | 0.805 | 0.742 | 4.063 | 0.4519 | 3683.0 |
+| LightGBM | 0.717 | 0.783 | 0.744 | 5.077 | 0.0459 | 2418.4 |
+
+해석:
+
+- 현재 재구현 데이터에서는 RF/LGBM이 Macro F1에서 더 높습니다.
+- MicroForest는 compact 모델 기준 pickle 크기가 RF 대비 약 3.1%, LGBM 대비 약 4.7% 수준입니다.
+- MicroForest 추론 시간은 RF보다 훨씬 짧고, LGBM보다도 빠르게 측정되었습니다.
+- 표의 MicroForest 크기는 teacher RF를 제거한 배포용 모델 기준입니다. 학습 과정에서는 teacher RF를 사용하지만, `MicroForest.discard_teachers()` 이후에는 `MicroTree`만 남깁니다.
+
+비교 결과 파일은 다음 위치에 저장됩니다.
+
+- [artifacts/baseline_comparison.csv](artifacts/baseline_comparison.csv)
+- [artifacts/baseline_comparison.md](artifacts/baseline_comparison.md)
 
 ## 코드 구조
 
@@ -94,26 +154,26 @@ scripts/
   generate_dataset.py
   smoke_test.py
   train_microforest.py
+  compare_baselines.py
 tests/
   test_pipeline.py
 assets/
   paper-figure-001.png ... paper-figure-008.png
+artifacts/
+  baseline_comparison.csv
+  baseline_comparison.md
 ```
 
-## 현재 범위
+## 현재 한계
 
-현재 코드는 다음을 목표로 합니다.
+이 저장소는 “잃어버린 코드의 복원판”입니다. 따라서 논문에 사용한 원본 seed, 원본 데이터, 원본 edge-device latency 측정값과 완전히 동일하다고 주장하지 않습니다.
 
-- 논문의 핵심 모델링 아이디어를 읽을 수 있는 형태로 재구현
-- 데이터 생성부터 모델 동작 확인까지 한 번에 실행 가능
-- GitHub에 공개 가능한 최소 연구 아티팩트 제공
+아직 남은 작업은 다음과 같습니다.
 
-아직 포함하지 않은 항목은 다음과 같습니다.
-
-- LightGBM, DCT, SSF 등 모든 baseline 비교
-- 논문 표의 전체 실험 재현
-- 실제 edge device latency 측정
-- task grouping 최적화 실험
+- 논문 표와 동일한 task scale 전체 재실험
+- DCT, SSF 등 추가 baseline 구현
+- 실제 edge device에서 latency / memory 재측정
+- task grouping 최적화 실험 재구현
 
 ## Citation
 
@@ -129,3 +189,4 @@ assets/
   doi = {10.3390/app15147798}
 }
 ```
+
